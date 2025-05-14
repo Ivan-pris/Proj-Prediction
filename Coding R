@@ -1,0 +1,55 @@
+# Library penting
+library(caret)
+library(dplyr)
+library(rpart)
+library(randomForest)
+
+training <- read.csv("~/pml-training.csv")
+testing  <- read.csv("~/pml-testing.csv")
+
+
+# Hapus kolom dengan banyak NA
+training <- training[, colSums(is.na(training)) == 0]
+testing  <- testing[, colSums(is.na(testing)) == 0]
+
+# Hapus kolom yang tidak relevan
+training <- training[, -c(1:7)]
+testing  <- testing[, -c(1:7)]
+
+head(testing)
+
+set.seed(12345)
+inTrain <- createDataPartition(training$classe, p = 0.7, list = FALSE)
+trainSet <- training[inTrain, ]
+validSet <- training[-inTrain, ]
+
+trainSet$classe <- as.factor(trainSet$classe)
+validSet$classe <- as.factor(validSet$classe)
+
+# Latih model Random Forest
+set.seed(12345)
+model_rf <- randomForest(classe ~ ., data = trainSet, importance = TRUE)
+
+# Prediksi pada data validasi
+pred_rf <- predict(model_rf, newdata = validSet)
+pred_rf <- factor(pred_rf, levels = levels(validSet$classe))  # samakan level faktor
+
+# Evaluasi akurasi
+confusionMatrix(pred_rf, validSet$classe)
+
+# Samakan kolom yang ada di keduanya
+common_cols <- intersect(names(testing), names(trainSet))
+common_cols <- setdiff(common_cols, "classe")  # hilangkan target variabel
+
+# Subset sesuai kolom yang digunakan model
+testing <- testing[, common_cols]
+trainSet <- trainSet[, c(common_cols, "classe")]
+
+# Latih ulang model dengan kolom yang sama
+set.seed(12345)
+model_rf <- randomForest(classe ~ ., data = trainSet)
+
+# Prediksi berhasil
+pred_test <- predict(model_rf, newdata = testing)
+print(pred_test)
+
